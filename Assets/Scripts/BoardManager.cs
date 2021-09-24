@@ -34,6 +34,8 @@ public class BoardManager : MonoBehaviour
     public List<Sprite> tileTypes = new List<Sprite>();
     public GameObject tilePrefab;
 
+    public bool IsAnimating { get; set; }
+
     private Vector2 startPosition;
     private Vector2 endPosition;
     private TileController[,] tiles;
@@ -45,8 +47,10 @@ public class BoardManager : MonoBehaviour
         Vector2 tileSize = tilePrefab.GetComponent<SpriteRenderer>().size;
         CreateBoard(tileSize);
 
-       
+        IsAnimating = false;
     }
+
+    #region Generate
 
     private void CreateBoard(Vector2 tileSize)
     {
@@ -94,5 +98,87 @@ public class BoardManager : MonoBehaviour
         return possibleId;
     }
 
+    #endregion
+
+    #region Swapping
+
+    public IEnumerator SwapTilePosition(TileController a, TileController b, System.Action onCompleted)
+    {
+        IsAnimating = true;
+
+        Vector2Int indexA = GetTileIndex(a);
+        Vector2Int indexB = GetTileIndex(b);
+
+        tiles[indexA.x, indexA.y] = b;
+        tiles[indexB.x, indexB.y] = a;
+
+        a.ChangeId(a.id, indexB.x, indexB.y);
+        b.ChangeId(b.id, indexA.x, indexA.y);
+
+        bool isRoutineACompleted = false;
+        bool isRoutineBCompleted = false;
+
+        StartCoroutine(a.MoveTilePosition(GetIndexPosition(indexB), () => { isRoutineACompleted = true; }));
+        StartCoroutine(b.MoveTilePosition(GetIndexPosition(indexA), () => { isRoutineBCompleted = true; }));
+
+        yield return new WaitUntil(() => { return isRoutineACompleted && isRoutineBCompleted; });
+
+        onCompleted?.Invoke();
+
+        IsAnimating = false;
+    }
+
+    #endregion
+
+    public List<TileController> GetAllMatches()
+    {
+        List<TileController> matchingTiles = new List<TileController>();
+
+        for (int x = 0; x < size.x; x++)
+        {
+            for (int y = 0; y < size.y; y++)
+            {
+                List<TileController> tileMatched = tiles[x, y].GetAllMatches();
+
+                // Just go to next tile if no match
+                if (tileMatched == null || tileMatched.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (TileController item in tileMatched)
+                {
+                    // Add only the one that is not added yet
+                    if (!matchingTiles.Contains(item))
+                    {
+                        matchingTiles.Add(item);
+                    }
+                }
+            }
+        }
+        return matchingTiles;
+    }
+
+    #region Helper
+    public Vector2Int GetTileIndex(TileController tile)
+    {
+        for (int x = 0; x < size.x; x++)
+        {
+            for (int y = 0; y < size.y; y++)
+            {
+                if (tile == tiles[x, y]) return new Vector2Int(x, y);
+            }
+        }
+
+        return new Vector2Int(-1, -1);
+    }
+
+    public Vector2 GetIndexPosition(Vector2Int index)
+    {
+        Vector2 tileSize = tilePrefab.GetComponent<SpriteRenderer>().size;
+        return new Vector2(startPosition.x + ((tileSize.x + offsetTile.x) * index.x), startPosition.y + ((tileSize.y + offsetTile.y) * index.y));
+    }
+
+    #endregion
 
 }
