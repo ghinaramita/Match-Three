@@ -5,6 +5,7 @@ using UnityEngine;
 public class BoardManager : MonoBehaviour
 {
     #region Singleton
+
     private static BoardManager _instance = null;
 
     public static BoardManager Instance
@@ -20,9 +21,11 @@ public class BoardManager : MonoBehaviour
                     Debug.LogError("Fatal Error: BoardManager not Found");
                 }
             }
+
             return _instance;
         }
     }
+
     #endregion
 
     [Header("Board")]
@@ -49,8 +52,8 @@ public class BoardManager : MonoBehaviour
     private Vector2 endPosition;
     private TileController[,] tiles;
 
+    private int combo;
 
-    // Start is called before the first frame update
     private void Start()
     {
         Vector2 tileSize = tilePrefab.GetComponent<SpriteRenderer>().size;
@@ -78,10 +81,11 @@ public class BoardManager : MonoBehaviour
                 TileController newTile = Instantiate(tilePrefab, new Vector2(startPosition.x + ((tileSize.x + offsetTile.x) * x), startPosition.y + ((tileSize.y + offsetTile.y) * y)), tilePrefab.transform.rotation, transform).GetComponent<TileController>();
                 tiles[x, y] = newTile;
 
+                // get no match id
                 List<int> possibleId = GetStartingPossibleIdList(x, y);
                 int newId = possibleId[Random.Range(0, possibleId.Count)];
-                newTile.ChangeId(newId, x, y);
 
+                newTile.ChangeId(newId, x, y);
             }
         }
     }
@@ -110,7 +114,7 @@ public class BoardManager : MonoBehaviour
 
     #endregion
 
-    #region Swap
+    #region Swapping
 
     public IEnumerator SwapTilePosition(TileController a, TileController b, System.Action onCompleted)
     {
@@ -146,6 +150,7 @@ public class BoardManager : MonoBehaviour
     {
         IsProcessing = true;
 
+        combo = 0;
         ProcessMatches();
     }
 
@@ -155,12 +160,15 @@ public class BoardManager : MonoBehaviour
     {
         List<TileController> matchingTiles = GetAllMatches();
 
-        // Stop locking if no match found
+        // stop locking if no match found
         if (matchingTiles == null || matchingTiles.Count == 0)
         {
             IsProcessing = false;
             return;
         }
+
+        combo++;
+        ScoreManager.Instance.IncrementCurrentScore(matchingTiles.Count, combo);
 
         StartCoroutine(ClearMatches(matchingTiles, ProcessDrop));
     }
@@ -175,7 +183,7 @@ public class BoardManager : MonoBehaviour
             {
                 List<TileController> tileMatched = tiles[x, y].GetAllMatches();
 
-                // Just go to next tile if no match
+                // just go to next tile if no match
                 if (tileMatched == null || tileMatched.Count == 0)
                 {
                     continue;
@@ -183,7 +191,7 @@ public class BoardManager : MonoBehaviour
 
                 foreach (TileController item in tileMatched)
                 {
-                    // Add only the one that is not added yet
+                    // add only the one that is not added yet
                     if (!matchingTiles.Contains(item))
                     {
                         matchingTiles.Add(item);
@@ -191,6 +199,7 @@ public class BoardManager : MonoBehaviour
                 }
             }
         }
+
         return matchingTiles;
     }
 
@@ -228,6 +237,7 @@ public class BoardManager : MonoBehaviour
     private Dictionary<TileController, int> GetAllDrop()
     {
         Dictionary<TileController, int> droppingTiles = new Dictionary<TileController, int>();
+
         for (int x = 0; x < size.x; x++)
         {
             for (int y = 0; y < size.y; y++)
@@ -285,9 +295,10 @@ public class BoardManager : MonoBehaviour
     private void ProcessDestroyAndFill()
     {
         List<TileController> destroyedTiles = GetAllDestroyed();
+
         StartCoroutine(DestroyAndFillTiles(destroyedTiles, ProcessReposition));
     }
-    
+
     private List<TileController> GetAllDestroyed()
     {
         List<TileController> destroyedTiles = new List<TileController>();
@@ -332,9 +343,7 @@ public class BoardManager : MonoBehaviour
         onCompleted?.Invoke();
     }
 
-    #endregion // Destroy & Fill
-
-    #endregion // Process
+    #endregion
 
     #region Reposition
 
@@ -354,7 +363,7 @@ public class BoardManager : MonoBehaviour
             {
                 Vector2 targetPosition = GetIndexPosition(new Vector2Int(x, y));
 
-                // Skip if already on position
+                // skip if already on position
                 if ((Vector2)tiles[x, y].transform.position == targetPosition)
                 {
                     continue;
@@ -376,7 +385,10 @@ public class BoardManager : MonoBehaviour
 
     #endregion
 
+    #endregion
+
     #region Helper
+
     public Vector2Int GetTileIndex(TileController tile)
     {
         for (int x = 0; x < size.x; x++)
@@ -406,7 +418,5 @@ public class BoardManager : MonoBehaviour
         return true;
     }
 
-
     #endregion
-
 }
